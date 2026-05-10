@@ -1,6 +1,10 @@
 /**
  * Sync Service — orchestrates API client, queue manager, and retry policy.
  * Also maintains a capped list of recent jobs in storage.
+ *
+ * NOTE: The full HTML payload is stored in the **pending queue** (for retry),
+ * but the **recent jobs list** (displayed in popup) strips the HTML to save
+ * browser.storage.local quota (~5–10 MB total).
  */
 
 import { ISyncService } from './contracts';
@@ -17,7 +21,7 @@ export class SyncService implements ISyncService {
   private readonly retry = new ExponentialRetryPolicy();
 
   async sendJob(payload: JobPayload): Promise<SyncStatus> {
-    // Save to recent jobs immediately
+    // Save a lightweight metadata copy to recent jobs (no HTML → saves storage quota)
     await this.recordRecentJob(payload);
 
     try {
@@ -27,7 +31,7 @@ export class SyncService implements ISyncService {
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       const pending: PendingJob = {
-        payload,
+        payload, // full HTML preserved for retry
         attempts: 1,
         last_error: error,
         enqueued_at: new Date().toISOString(),
@@ -47,7 +51,7 @@ export class SyncService implements ISyncService {
       }
 
       try {
-        await this.api.postJob(job.payload);
+        await this.api.postJob(job.payload); // sends full HTML
         await this.queue.dequeue(job.payload.url);
         syncedCount++;
       } catch (err) {
@@ -74,10 +78,22 @@ export class SyncService implements ISyncService {
     return raw ?? [];
   }
 
+  /**
+   * Stores a lightweight metadata record (no HTML) to avoid exceeding
+   * browser.storage.local quota (~5–10 MB).
+   */
   private async recordRecentJob(payload: JobPayload): Promise<void> {
+    const meta: JobPayload = {
+      url: payload.url,
+      source: payload.source,
+      title: payload.title,
+      html: '', // stripped — only queue keeps full HTML
+      scraped_at: payload.scraped_at,
+    };
+
     const current = await this.getRecentJobs();
     const filtered = current.filter((j) => j.url !== payload.url);
-    filtered.unshift(payload);
+    filtered.unshift(meta);
     const capped = filtered.slice(0, 50);
     await storage.set(STORAGE_KEYS.RECENT_JOBS, capped);
   }
