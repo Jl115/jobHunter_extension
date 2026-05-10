@@ -47,6 +47,22 @@ export function captureJobPage(): JobPayload | null {
   const source = detectSource(url);
   console.log(`[JobHunter:${source}] Starting Readability capture`);
 
+  return _capture(url, source);
+}
+
+/**
+ * Force-capture the current page regardless of URL pattern.
+ * Used for manual capture on company career sites or unknown job boards.
+ */
+export function forceCapture(): JobPayload {
+  const url = window.location.href;
+  const source = detectSource(url);
+  console.log(`[JobHunter] FORCE capture on ${url}`);
+  return _capture(url, source);
+}
+
+/** Internal capture logic shared by auto and force capture. */
+function _capture(url: string, source: string): JobPayload {
   // Clone the document so Readability can mutate it safely
   const clone = document.cloneNode(true) as Document;
   const article = new Readability(clone).parse();

@@ -4,15 +4,23 @@ A Chrome Extension (Manifest V3) that automatically captures job postings from L
 
 ## What It Does
 
-When you browse a job posting on LinkedIn, Indeed, or Xing, the extension automatically:
+### Automatic Capture (Known Job Boards)
+When you browse a job posting on **LinkedIn, Indeed, or Xing**, the extension automatically:
 
 1. **Detects** job-posting URLs (e.g., `/jobs/view/`, `/viewjob`, `/jobs/...-\d+`)
 2. **Waits** for the SPA DOM to settle via a debounced `MutationObserver`
 3. **Captures** the clean article HTML using Mozilla's Readability.js
 4. **Sends** `{url, source, title, html, scraped_at}` to the local FastAPI server
-5. **Queues** captures for retry if the desktop app is offline
 
-The extension does **NOT** extract structured fields (title, company, location, description) from the DOM. That is handled by the Python backend using a local LLM (Gemma 4B GGUF), making the extension resilient to any DOM changes by the job boards.
+### Manual Capture (Any Website)
+For **company career sites** (e.g., `careers.apple.com`, `jobs.google.com`) or any other job board:
+
+1. Visit the job posting page
+2. Click the extension icon → **"Capture Current Page"**
+3. The extension bypasses URL checks and captures the page HTML via Readability.js
+4. The backend LLM extracts structured fields regardless of the site
+
+The extension does **NOT** extract structured fields (title, company, location, description) from the DOM. That is handled by the Python backend using a local LLM (Gemma 4B GGUF), making the extension resilient to any DOM changes by any job board or company site.
 
 ## Tech Stack
 

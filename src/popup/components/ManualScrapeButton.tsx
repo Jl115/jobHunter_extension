@@ -1,6 +1,7 @@
 /**
- * Triggers a manual scrape on the currently active tab.
- * Used from popup when auto-detection misses a page.
+ * Triggers a manual/forced capture on the currently active tab.
+ * Works on ANY website (company career sites, unknown job boards, etc.).
+ * Bypasses URL pattern matching.
  */
 
 import { useState } from 'react';
@@ -16,7 +17,8 @@ export function ManualScrapeButton() {
     try {
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
-        await browser.tabs.sendMessage(tab.id, { type: 'MANUAL_SCRAPE' });
+        // Send FORCE_CAPTURE to capture any page regardless of URL pattern
+        await browser.tabs.sendMessage(tab.id, { type: 'FORCE_CAPTURE' });
         setDone(true);
       }
     } catch {
@@ -29,9 +31,9 @@ export function ManualScrapeButton() {
   return (
     <div className="manual-scrape">
       <button onClick={handleClick} disabled={busy}>
-        {busy ? 'Scraping…' : 'Scrape Current Page'}
+        {busy ? 'Capturing…' : 'Capture Current Page'}
       </button>
-      {done && <span className="done-check">Done!</span>}
+      {done && <span className="done-check">Captured!</span>}
     </div>
   );
 }

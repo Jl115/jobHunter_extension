@@ -11,7 +11,7 @@
  * title, company, location, description from the raw HTML.
  */
 
-import { captureJobPage, looksLikeJobPosting } from './capture';
+import { captureJobPage, looksLikeJobPosting, forceCapture } from './capture';
 import { messageBus } from '../infrastructure/messaging';
 import { MESSAGES } from '../shared/constants';
 import browser from 'webextension-polyfill';
@@ -180,12 +180,38 @@ function setupNavigationListeners(): void {
 // ── Manual capture from popup ─────────────────────────────────────────────────
 browser.runtime.onMessage.addListener((msg) => {
   console.log('[JobHunter] Received popup message:', msg);
-  if (msg && (msg as Record<string, unknown>).type === 'MANUAL_SCRAPE') {
+  const m = msg as Record<string, unknown>;
+
+  if (m.type === 'MANUAL_SCRAPE') {
+    // For known job boards: reset and re-attempt auto-capture
     detected = false;
     isScraping = false;
     attempts = 0;
     startObserverIfNeeded();
+    return undefined;
   }
+
+  if (m.type === 'FORCE_CAPTURE') {
+    // For ANY website (company career sites, unknown job boards)
+    void (async () => {
+      try {
+        const payload = forceCapture();
+        if (!payload.html) {
+          console.warn('[JobHunter] Force capture returned empty HTML');
+          return;
+        }
+        await markScraped(payload.url);
+        await messageBus.send(MESSAGES.JOB_SCRAPED, { payload });
+        debugSuccess(payload.url);
+        console.log('[JobHunter] ✅ Force-captured & sent:', payload.url);
+      } catch (err) {
+        debugError(err);
+        console.error('[JobHunter] ❌ Force capture failed:', err);
+      }
+    })();
+    return undefined;
+  }
+
   return undefined;
 });
 
